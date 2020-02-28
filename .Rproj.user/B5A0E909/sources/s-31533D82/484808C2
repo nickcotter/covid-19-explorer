@@ -7,13 +7,13 @@
     "folds" : "",
     "hash" : "0",
     "id" : "484808C2",
-    "lastKnownWriteTime" : 1582893707,
-    "last_content_update" : 1582893707,
+    "lastKnownWriteTime" : 1582894376,
+    "last_content_update" : 1582894376582,
     "path" : "~/research/covid-19-explorer/COVID19Explorer/app.R",
     "project_path" : "COVID19Explorer/app.R",
     "properties" : {
-        "cursorPosition" : "15,43",
-        "scrollLine" : "0"
+        "cursorPosition" : "88,30",
+        "scrollLine" : "63"
     },
     "read_only" : false,
     "read_only_alternatives" : [
