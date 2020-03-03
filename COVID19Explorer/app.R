@@ -5,36 +5,44 @@ library(R0)
 
 
 
+# load the latest data
 confirmed <- read.csv(url("https://raw.githubusercontent.com/CSSEGISandData/2019-nCoV/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv"))
 confirmed <- subset(confirmed, select = -c(Lat, Long))    
-
-
 countries <- unique(confirmed$Country.Region)
 countries <- factor(append("Global", as.character(countries)))
 
 mgt <- generation.time("gamma", c(8.4, 3.8))
 
 
-sums <- colSums(confirmed[,-match(c("Province.State", "Country.Region"), names(confirmed))], na.rm=TRUE)
-sumsByDateCode <- as.data.frame(t(t(sums)))
-colnames(sumsByDateCode) <- c("count")
-sumsByDateCode$datecode <- rownames(sumsByDateCode)
-dailyCounts <- mutate(sumsByDateCode, date = mdy(substring(datecode,2)))
-dailyCounts$day <- seq.int(nrow(dailyCounts))
+getDailyCounts <- function() {
+    sums <- colSums(confirmed[,-match(c("Province.State", "Country.Region"), names(confirmed))], na.rm=TRUE)
+    sumsByDateCode <- as.data.frame(t(t(sums)))
+    colnames(sumsByDateCode) <- c("count")
+    sumsByDateCode$datecode <- rownames(sumsByDateCode)
+    dailyCounts <- mutate(sumsByDateCode, date = mdy(substring(datecode,2)))
+    dailyCounts$day <- seq.int(nrow(dailyCounts))
+    dailyCounts
+}
 
-est <- estimate.R(dailyCounts$count, methods=c("TD"), GT=mgt)
-
-dailyCountAndPrediction <- merge(dailyCounts, est$estimates$TD$pred, by="row.names", sort=FALSE, all=TRUE)
-dailyCountAndPrediction <- dailyCountAndPrediction[-c(1)]
-names(dailyCountAndPrediction)[5] <- "TD"
-
-estimatedR <- est$estimates$TD$R[1:length(est$estimates$TD$R)-1]
-
-estDf <- as.data.frame(estimatedR)
-colnames(estDf) <- c("R")
-estDf$day <- rownames(estDf)
+generateEstimate <-function(dailyCounts) {
+    estimate.R(dailyCounts$count, methods=c("TD"), GT=mgt)
+} 
 
 
+getDailyPredictions <- function(dailyCounts, est) {
+    dailyCountAndPrediction <- merge(dailyCounts, est$estimates$TD$pred, by="row.names", sort=FALSE, all=TRUE)
+    dailyCountAndPrediction <- dailyCountAndPrediction[-c(1)]
+    names(dailyCountAndPrediction)[5] <- "TD"
+    dailyCountAndPrediction
+}
+
+getEstimatedRByDay <- function(est) {
+    estimatedR <- est$estimates$TD$R[1:length(est$estimates$TD$R)-1]
+    estDf <- as.data.frame(estimatedR)
+    colnames(estDf) <- c("R")
+    estDf$day <- rownames(estDf)
+    estDf
+}
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -59,6 +67,11 @@ ui <- fluidPage(
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
+    
+    dailyCounts <- getDailyCounts()
+    estimate <- generateEstimate(dailyCounts)
+    dailyCountAndPrediction <- getDailyPredictions(dailyCounts, estimate)
+    estimatedRByDay <- getEstimatedRByDay(estimate)
 
     output$dailyConfirmedPlot <- renderPlot({
         plot(dailyCountAndPrediction$day, dailyCountAndPrediction$count, xlab="days",ylab="count", col="red")
@@ -67,9 +80,9 @@ server <- function(input, output) {
     })
     
     output$estimatedR <- renderPlot({
-        plot(estDf$day, estDf$R, xlab="days", ylab="R", ylim=c(0,20), yaxt="n", pch=3)
+        plot(estimatedRByDay$day, estimatedRByDay$R, xlab="days", ylab="R", ylim=c(0,20), yaxt="n", pch=3)
         abline(h=1, col="gray60")
-        axis(2, at=seq(0:max(estimatedR)))
+        axis(2, at=seq(0:max(estimatedRByDay$R)))
     })
 }
 
