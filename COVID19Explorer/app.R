@@ -56,7 +56,11 @@ ui <- fluidPage(
     # Sidebar with a slider input for number of bins 
     sidebarLayout(
         sidebarPanel(
-            selectInput("countries", "Country", countries)
+            selectInput("countries", "Country", countries),
+            
+            hr(),
+            
+            a("GitHub Repo", href="https://github.com/nickcotter/covid-19-explorer")
         ),
 
         # Show a plot of the generated distribution
