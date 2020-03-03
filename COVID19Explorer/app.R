@@ -11,23 +11,28 @@ confirmed <- subset(confirmed, select = -c(Lat, Long))
 countries <- unique(confirmed$Country.Region)
 countries <- factor(append("Global", as.character(countries)))
 
+# TODO make this configurable
 mgt <- generation.time("gamma", c(8.4, 3.8))
 
 
-getDailyCounts <- function() {
-    sums <- colSums(confirmed[,-match(c("Province.State", "Country.Region"), names(confirmed))], na.rm=TRUE)
+getDailyCounts <- function(country) {
+    
+    filteredConfirmed <- confirmed %>%
+        filter(country == "Global" | Country.Region == country)
+
+    sums <- colSums(filteredConfirmed[,-match(c("Province.State", "Country.Region"), names(filteredConfirmed))], na.rm=TRUE)
     sumsByDateCode <- as.data.frame(t(t(sums)))
     colnames(sumsByDateCode) <- c("count")
     sumsByDateCode$datecode <- rownames(sumsByDateCode)
     dailyCounts <- mutate(sumsByDateCode, date = mdy(substring(datecode,2)))
     dailyCounts$day <- seq.int(nrow(dailyCounts))
-    dailyCounts
+    dailyCounts %>%
+        filter(count > 0)
 }
 
 generateEstimate <-function(dailyCounts) {
     estimate.R(dailyCounts$count, methods=c("TD"), GT=mgt)
 } 
-
 
 getDailyPredictions <- function(dailyCounts, est) {
     dailyCountAndPrediction <- merge(dailyCounts, est$estimates$TD$pred, by="row.names", sort=FALSE, all=TRUE)
@@ -68,19 +73,36 @@ ui <- fluidPage(
 # Define server logic required to draw a histogram
 server <- function(input, output) {
     
-    dailyCounts <- getDailyCounts()
-    estimate <- generateEstimate(dailyCounts)
-    dailyCountAndPrediction <- getDailyPredictions(dailyCounts, estimate)
-    estimatedRByDay <- getEstimatedRByDay(estimate)
+    reactiveDailyCounts <- reactive({
+        getDailyCounts(input$countries)
+    })
+
+    reactiveEstimate <- reactive({
+        generateEstimate(reactiveDailyCounts())
+    })
+    
+    reactiveDailyCountAndPrediction <- reactive({
+        getDailyPredictions(reactiveDailyCounts(), reactiveEstimate())
+    })
+    
+    reactiveEstimatedRByDay <- reactive({
+        getEstimatedRByDay(reactiveEstimate())
+    })
 
     output$dailyConfirmedPlot <- renderPlot({
-        plot(dailyCountAndPrediction$day, dailyCountAndPrediction$count, xlab="days",ylab="count", col="red")
+        
+        dailyCountAndPrediction <- reactiveDailyCountAndPrediction()
+        
+        plot(dailyCountAndPrediction$day, dailyCountAndPrediction$count, xlab="days",ylab="count", col="red", main="Confirmed Case Count")
         lines(dailyCountAndPrediction$day, dailyCountAndPrediction$TD, col="green")
         legend(1, max(dailyCountAndPrediction$count)-10, legend=c("Actual", "TD"), col=c("red", "green"), lty=c(0,1), pch=c(1,NA), cex=0.8)
     })
     
     output$estimatedR <- renderPlot({
-        plot(estimatedRByDay$day, estimatedRByDay$R, xlab="days", ylab="R", ylim=c(0,20), yaxt="n", pch=3)
+        
+        estimatedRByDay <- reactiveEstimatedRByDay()
+        
+        plot(estimatedRByDay$day, estimatedRByDay$R, xlab="days", ylab="R", ylim=c(0,20), yaxt="n", pch=3, main="Estimated R")
         abline(h=1, col="gray60")
         axis(2, at=seq(0:max(estimatedRByDay$R)))
     })
