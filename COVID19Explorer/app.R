@@ -3,8 +3,6 @@ library(dplyr)
 library(lubridate)
 library(R0)
 
-
-
 # load the latest data
 confirmed <- read.csv(url("https://raw.githubusercontent.com/CSSEGISandData/2019-nCoV/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv"))
 confirmed <- subset(confirmed, select = -c(Lat, Long))    
@@ -63,7 +61,6 @@ ui <- fluidPage(
 
         # Show a plot of the generated distribution
         mainPanel(
-           # plotOutput("distPlot")
             plotOutput("dailyConfirmedPlot"),
             plotOutput("estimatedR")
         )
@@ -82,7 +79,11 @@ server <- function(input, output) {
     })
     
     reactiveDailyCountAndPrediction <- reactive({
-        getDailyPredictions(reactiveDailyCounts(), reactiveEstimate())
+        tryCatch({
+            getDailyPredictions(reactiveDailyCounts(), reactiveEstimate())
+        }, error=function(e) {
+            reactiveDailyCounts()
+        })
     })
     
     reactiveEstimatedRByDay <- reactive({
@@ -94,17 +95,24 @@ server <- function(input, output) {
         dailyCountAndPrediction <- reactiveDailyCountAndPrediction()
         
         plot(dailyCountAndPrediction$day, dailyCountAndPrediction$count, xlab="days",ylab="count", col="red", main="Confirmed Case Count")
-        lines(dailyCountAndPrediction$day, dailyCountAndPrediction$TD, col="green")
-        legend(1, max(dailyCountAndPrediction$count)-10, legend=c("Actual", "TD"), col=c("red", "green"), lty=c(0,1), pch=c(1,NA), cex=0.8)
+        
+        if("TD" %in% names(dailyCountAndPrediction)) {
+            lines(dailyCountAndPrediction$day, dailyCountAndPrediction$TD, col="green")
+        }
+        
+        legend(1, max(dailyCountAndPrediction$count)-10, legend=c("Actual", "Estimated"), col=c("red", "green"), lty=c(0,1), pch=c(1,NA), cex=0.8)
     })
     
     output$estimatedR <- renderPlot({
         
-        estimatedRByDay <- reactiveEstimatedRByDay()
+        tryCatch({
+            estimatedRByDay <- reactiveEstimatedRByDay()
+            
+            plot(estimatedRByDay$day, estimatedRByDay$R, xlab="days", ylab="R", ylim=c(0,20), yaxt="n", pch=3, main="Estimated R")
+            abline(h=1, col="gray60")
+            axis(2, at=seq(0:max(estimatedRByDay$R)))
         
-        plot(estimatedRByDay$day, estimatedRByDay$R, xlab="days", ylab="R", ylim=c(0,20), yaxt="n", pch=3, main="Estimated R")
-        abline(h=1, col="gray60")
-        axis(2, at=seq(0:max(estimatedRByDay$R)))
+        }, error=function(e) {})
     })
 }
 
