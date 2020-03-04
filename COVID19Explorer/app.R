@@ -47,6 +47,10 @@ getEstimatedRByDay <- function(est) {
     estDf
 }
 
+RMSE = function(m, o){
+  sqrt(mean((m - o)^2))
+}
+
 # Define UI for application that draws a histogram
 ui <- fluidPage(
 
@@ -60,7 +64,11 @@ ui <- fluidPage(
             
             hr(),
             
-            a("GitHub Repo", href="https://github.com/nickcotter/covid-19-explorer")
+            a("GitHub Repo", href="https://github.com/nickcotter/covid-19-explorer"),
+            
+            hr(),
+            
+            fluidRow(align="center", tableOutput("estimatedRSummary"))
         ),
 
         # Show a plot of the generated distribution
@@ -118,6 +126,17 @@ server <- function(input, output) {
         
         }, error=function(e) {})
     })
+    
+    output$estimatedRSummary <- renderTable({
+      
+      tryCatch({
+        est <- reactiveEstimate()
+        estimatedR <- est$estimates$TD$R[1:length(est$estimates$TD$R)-1]
+        as.array(summary(estimatedR))
+      }, error=function(e) {
+      })
+    
+    }, colnames = FALSE, caption="Estimated R Range", caption.placement = getOption("xtable.caption.placement", "top"))
 }
 
 # Run the application 
