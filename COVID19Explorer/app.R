@@ -119,11 +119,8 @@ server <- function(input, output) {
         
         tryCatch({
             estimatedRByDay <- reactiveEstimatedRByDay()
-            
-            plot(estimatedRByDay$day, estimatedRByDay$R, xlab="days", ylab="R", ylim=c(0,20), yaxt="n", pch=3, main="Estimated R")
+            plot(estimatedRByDay$day, estimatedRByDay$R, xlab="days", ylab="R", ylim=c(0,20), pch=3, main="Estimated R")
             abline(h=1, col="gray60")
-            axis(2, at=seq(0:max(estimatedRByDay$R)))
-        
         }, error=function(e) {})
     })
     
