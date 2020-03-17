@@ -36,7 +36,8 @@ getDailyPredictions <- function(dailyCounts, est) {
     dailyCountAndPrediction <- merge(dailyCounts, est$estimates$TD$pred, by="row.names", sort=FALSE, all=TRUE)
     dailyCountAndPrediction <- dailyCountAndPrediction[-c(1)]
     names(dailyCountAndPrediction)[5] <- "TD"
-    dailyCountAndPrediction
+    dailyCountAndPrediction %>%
+      mutate(countDiff = count - lag(count))
 }
 
 getEstimatedRByDay <- function(est) {
@@ -73,8 +74,9 @@ ui <- fluidPage(
 
         # Show a plot of the generated distribution
         mainPanel(
+            plotOutput("estimatedR"),
             plotOutput("dailyConfirmedPlot"),
-            plotOutput("estimatedR")
+            plotOutput("dailyDiffPlot")
         )
     )
 )
@@ -113,6 +115,13 @@ server <- function(input, output) {
         }
         
         legend(1, max(dailyCountAndPrediction$count)-10, legend=c("Actual", "Estimated"), col=c("red", "green"), lty=c(0,1), pch=c(1,NA), cex=0.8)
+    })
+    
+    output$dailyDiffPlot <- renderPlot({
+      
+      dailyCountAndPrediction <- reactiveDailyCountAndPrediction()
+      
+      barplot(dailyCountAndPrediction$countDiff ~ dailyCountAndPrediction$day, xlab="days", ylab="difference", main="Confirmed Case Count Increase")
     })
     
     output$estimatedR <- renderPlot({
