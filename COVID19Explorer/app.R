@@ -10,7 +10,7 @@ countries <- unique(confirmed$Country.Region)
 countries <- factor(append("Global", as.character(countries)))
 
 # TODO make this configurable
-mgt <- generation.time("gamma", c(8.4, 3.8))
+mgt <- generation.time("gamma", c(5, 1.9))
 
 
 getDailyCounts <- function(country) {
