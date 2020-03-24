@@ -4,7 +4,7 @@ library(lubridate)
 library(R0)
 
 # load the latest data
-confirmed <- read.csv(url("https://raw.githubusercontent.com/CSSEGISandData/2019-nCoV/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv"))
+confirmed <- read.csv(url("https://raw.githubusercontent.com/CSSEGISandData/2019-nCoV/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"))
 confirmed <- subset(confirmed, select = -c(Lat, Long))    
 countries <- unique(confirmed$Country.Region)
 countries <- factor(append("Global", as.character(countries)))
