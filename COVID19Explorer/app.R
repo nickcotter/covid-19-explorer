@@ -61,15 +61,22 @@ ui <- fluidPage(
     # Sidebar with a slider input for number of bins 
     sidebarLayout(
         sidebarPanel(
+          
+            helpText("Plot case counts and estimated reproduction number globally and by country for COVID-19"),
+          
             selectInput("countries", "Country", countries),
             
-            hr(),
-            
-            a("GitHub Repo", href="https://github.com/nickcotter/covid-19-explorer"),
             
             hr(),
             
-            fluidRow(align="center", tableOutput("estimatedRSummary"))
+            fluidRow(align="center", tableOutput("estimatedRSummary")),
+            
+            hr(),
+          
+            p("created by",
+            a("Nick Cotter", href="https://nickcotter.com/")),
+            
+            a("GitHub Repo", href="https://github.com/nickcotter/covid-19-explorer")
         ),
 
         # Show a plot of the generated distribution
