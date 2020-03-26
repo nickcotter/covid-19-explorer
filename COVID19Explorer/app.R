@@ -62,7 +62,7 @@ ui <- fluidPage(
     sidebarLayout(
         sidebarPanel(
           
-            helpText("Plot case counts and effective reproduction number globally and by country for COVID-19"),
+            helpText("Plot cases and effective reproduction number globally or by country for COVID-19"),
           
             selectInput("countries", "Country", countries),
             
@@ -125,7 +125,7 @@ server <- function(input, output) {
         
         dailyCountAndPrediction <- reactiveDailyCountAndPrediction()
         
-        plot(dailyCountAndPrediction$day, dailyCountAndPrediction$count, xlab="days",ylab="count", col="red", main="Confirmed Case Count")
+        plot(dailyCountAndPrediction$day, dailyCountAndPrediction$count, xlab="days",ylab="count", col="red", main="Confirmed Cases")
         
         if("TD" %in% names(dailyCountAndPrediction)) {
             lines(dailyCountAndPrediction$day, dailyCountAndPrediction$TD, col="green")
@@ -138,7 +138,7 @@ server <- function(input, output) {
       
       dailyCountAndPrediction <- reactiveDailyCountAndPrediction()
       
-      barplot(dailyCountAndPrediction$countDiff ~ dailyCountAndPrediction$day, xlab="days", ylab="difference", main="Confirmed Case Count Increase")
+      barplot(dailyCountAndPrediction$countDiff ~ dailyCountAndPrediction$day, xlab="days", ylab="difference", main="Daily Increase")
     })
     
     output$effectiveR <- renderPlot({
