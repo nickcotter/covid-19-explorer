@@ -44,7 +44,7 @@ getEstimatedRByDay <- function(est) {
     estimatedR <- est$estimates$TD$R[1:length(est$estimates$TD$R)-1]
     estDf <- as.data.frame(estimatedR)
     colnames(estDf) <- c("R")
-    estDf$day <- rownames(estDf)
+    estDf$day <- as.numeric(rownames(estDf))
     estDf
 }
 
@@ -67,6 +67,10 @@ ui <- fluidPage(
             selectInput("countries", "Country", countries),
             
             fluidRow(align="center", tableOutput("effectiveRSummary")),
+            
+            helpText("Estimated Peak"),
+            
+            fluidRow(align="center", textOutput("estimatedPeak")),
             
             helpText("Generation Time Distribution"),
             
@@ -120,6 +124,31 @@ server <- function(input, output) {
     reactiveEstimatedRByDay <- reactive({
         getEstimatedRByDay(reactiveEstimate())
     })
+    
+    reactiveEstimatedPeak <- reactive({
+       estimatedR <- reactiveEstimatedRByDay();
+       if(length(estimatedR$day) > 10) {
+         last10Days <- tail(estimatedR, n=10)
+         fit <- lm(R ~ day, data=last10Days)
+         fitSummary <- summary(fit)
+         intercept <- fitSummary$coefficients[1,1]
+         slope <- fitSummary$coefficients[2,1]
+         if(slope < 0) {
+           sig <- round(fitSummary$sigma, digits=2)
+           crossingDay <- (1 - intercept)/slope
+           daysFromNow <- round(crossingDay - tail(last10Days, n=1)$day, digits=0)
+           if(daysFromNow < 0) {
+             paste(daysFromNow, "days ago (RSE:", sig, ")")
+           } else {
+             paste("in", daysFromNow, "days (RSE: ", sig, ")")
+           }
+         } else {
+           "-"
+         }
+       } else {
+         "-"
+       }
+    })
 
     output$dailyConfirmedPlot <- renderPlot({
         
@@ -148,6 +177,12 @@ server <- function(input, output) {
             plot(estimatedRByDay$day, estimatedRByDay$R, xlab="days", ylab="R", ylim=c(0,20), pch=3, main="Effective R")
             abline(h=1, col="gray60")
         }, error=function(e) {})
+    })
+    
+    output$estimatedPeak <- renderText({
+      tryCatch({
+        reactiveEstimatedPeak()
+      }, error=function(e) {})
     })
     
     output$effectiveRSummary <- renderTable({
