@@ -68,7 +68,7 @@ ui <- fluidPage(
             
             fluidRow(align="center", tableOutput("effectiveRSummary")),
             
-            helpText("Estimated Peak"),
+            helpText("Estimated Peak/Plateau Ends"),
             
             fluidRow(align="center", textOutput("estimatedPeak")),
             
