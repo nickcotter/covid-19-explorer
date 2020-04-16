@@ -138,9 +138,9 @@ server <- function(input, output) {
            crossingDay <- (1 - intercept)/slope
            daysFromNow <- round(crossingDay - tail(last10Days, n=1)$day, digits=0)
            if(daysFromNow < 0) {
-             paste(daysFromNow, "days ago (RSE:", sig, ")")
+             paste("~ ", daysFromNow, " days ago")
            } else {
-             paste("in", daysFromNow, "days (RSE: ", sig, ")")
+             paste("in ~ ", daysFromNow, " days")
            }
          } else {
            "-"
