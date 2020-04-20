@@ -20,16 +20,21 @@ getDailyCounts <- function(country) {
 
     sums <- colSums(filteredConfirmed[,-match(c("Province.State", "Country.Region"), names(filteredConfirmed))], na.rm=TRUE)
     sumsByDateCode <- as.data.frame(t(t(sums)))
+    rm(sums)
     colnames(sumsByDateCode) <- c("count")
     sumsByDateCode$datecode <- rownames(sumsByDateCode)
     dailyCounts <- mutate(sumsByDateCode, date = mdy(substring(datecode,2)))
+    rm(sumsByDateCode)
+    gc()
     dailyCounts$day <- seq.int(nrow(dailyCounts))
     dailyCounts %>%
         filter(count > 0)
 }
 
 generateEstimate <-function(dailyCounts, mgt) {
-    estimate.R(dailyCounts$count, methods=c("TD"), GT=mgt)
+    e <- estimate.R(dailyCounts$count, methods=c("TD"), GT=mgt)
+    gc()
+    return(e)
 } 
 
 getDailyPredictions <- function(dailyCounts, est) {
@@ -43,13 +48,11 @@ getDailyPredictions <- function(dailyCounts, est) {
 getEstimatedRByDay <- function(est) {
     estimatedR <- est$estimates$TD$R[1:length(est$estimates$TD$R)-1]
     estDf <- as.data.frame(estimatedR)
+    rm(estimatedR)
+    gc()
     colnames(estDf) <- c("R")
     estDf$day <- as.numeric(rownames(estDf))
     estDf
-}
-
-RMSE = function(m, o){
-  sqrt(mean((m - o)^2))
 }
 
 # Define UI for application that draws a histogram
