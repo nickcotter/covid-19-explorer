@@ -12,7 +12,7 @@ ui <- fluidPage(
           
             helpText("The COVID-19 Explorer has moved here:"),
           
-            fluidRow(align="center", a("https://covid-explorer-pa6ye47i4a-ew.a.run.app/", href="https://covid-explorer-pa6ye47i4a-ew.a.run.app/"))
+            fluidRow(align="center", a("https://covid19-explorer.cosmo-opticon.net/", href="https://covid19-explorer.cosmo-opticon.net/"))
         ),
 
         

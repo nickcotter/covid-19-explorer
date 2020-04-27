@@ -8,7 +8,7 @@ The application uses the [Time Dependent](https://www.frontiersin.org/articles/1
 
 ----
 
-It has been published [here](https://covid-explorer-pa6ye47i4a-ew.a.run.app/).
+It has been published [here](https://covid19-explorer.cosmo-opticon.net/).
 
 ----
 
