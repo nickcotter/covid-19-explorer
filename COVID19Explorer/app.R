@@ -4,8 +4,8 @@ library(lubridate)
 library(R0)
 
 # load the latest data
-confirmed <- read.csv(url("https://raw.githubusercontent.com/CSSEGISandData/2019-nCoV/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"))
-confirmed <- subset(confirmed, select = -c(Lat, Long))    
+confirmed <- read.csv(url("https://raw.githubusercontent.com/CSSEGISandData/2019-nCoV/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")) %>%
+              dplyr::select(-c(Lat, Long, ))   
 countries <- unique(confirmed$Country.Region)
 countries <- factor(append("Global", as.character(countries)))
 
@@ -18,35 +18,39 @@ getDailyCounts <- function(country) {
     filteredConfirmed <- confirmed %>%
         filter(country == "Global" | Country.Region == country)
 
-    sums <- colSums(filteredConfirmed[,-match(c("Province.State", "Country.Region"), names(filteredConfirmed))], na.rm=TRUE)
-    sumsByDateCode <- as.data.frame(t(t(sums)))
+    sums <- as.integer(colSums(filteredConfirmed[,-match(c("Province.State", "Country.Region"), names(filteredConfirmed))], na.rm=TRUE))
+    sumsByDateCode <- as.data.frame(sums)
     rm(sums)
+    rm(filteredConfirmed)
+    
     colnames(sumsByDateCode) <- c("count")
     sumsByDateCode$datecode <- rownames(sumsByDateCode)
+    
     dailyCounts <- mutate(sumsByDateCode, date = mdy(substring(datecode,2)))
     rm(sumsByDateCode)
+    
     gc()
+    
     dailyCounts$day <- seq.int(nrow(dailyCounts))
     dailyCounts %>%
+        dplyr::select(-c("datecode")) %>%
         filter(count > 0)
 }
 
 generateEstimate <-function(dailyCounts, mgt) {
-    e <- estimate.R(dailyCounts$count, methods=c("TD"), GT=mgt)
-    gc()
-    return(e)
+  estimate.R(dailyCounts$count, methods=c("TD"), GT=mgt)$estimates$TD
 } 
 
 getDailyPredictions <- function(dailyCounts, est) {
-    dailyCountAndPrediction <- merge(dailyCounts, est$estimates$TD$pred, by="row.names", sort=FALSE, all=TRUE)
-    dailyCountAndPrediction <- dailyCountAndPrediction[-c(1)]
-    names(dailyCountAndPrediction)[5] <- "TD"
-    dailyCountAndPrediction %>%
+    dailyCountAndPrediction <- merge(dailyCounts, est$pred, by="row.names", sort=FALSE, all=TRUE) %>%
+      dplyr::select(-c("Row.names")) %>%
+      dplyr::rename(TD = y) %>%
       mutate(countDiff = count - lag(count))
 }
 
 getEstimatedRByDay <- function(est) {
-    estimatedR <- est$estimates$TD$R[1:length(est$estimates$TD$R)-1]
+    estimatedR <- est$R[1:length(est$R)-1]
+    #estimatedR <- est$estimates$TD$R[1:length(est$estimates$TD$R)-1]
     estDf <- as.data.frame(estimatedR)
     rm(estimatedR)
     gc()
@@ -120,6 +124,7 @@ server <- function(input, output) {
         tryCatch({
             getDailyPredictions(reactiveDailyCounts(), reactiveEstimate())
         }, error=function(e) {
+          print(e)
             reactiveDailyCounts()
         })
     })
@@ -134,6 +139,7 @@ server <- function(input, output) {
          last10Days <- tail(estimatedR, n=10)
          fit <- lm(R ~ day, data=last10Days)
          fitSummary <- summary(fit)
+         rm(fit)
          intercept <- fitSummary$coefficients[1,1]
          slope <- fitSummary$coefficients[2,1]
          if(slope < 0) {
@@ -154,7 +160,7 @@ server <- function(input, output) {
     })
 
     output$dailyConfirmedPlot <- renderPlot({
-        
+    
         dailyCountAndPrediction <- reactiveDailyCountAndPrediction()
         
         plot(dailyCountAndPrediction$day, dailyCountAndPrediction$count, xlab="days",ylab="count", col="red", main="Confirmed Cases")
@@ -167,14 +173,14 @@ server <- function(input, output) {
     })
     
     output$dailyDiffPlot <- renderPlot({
-      
+    
       dailyCountAndPrediction <- reactiveDailyCountAndPrediction()
       
       barplot(dailyCountAndPrediction$countDiff ~ dailyCountAndPrediction$day, xlab="days", ylab="difference", main="Daily Increase")
     })
     
     output$effectiveR <- renderPlot({
-        
+      
         tryCatch({
             estimatedRByDay <- reactiveEstimatedRByDay()
             plot(estimatedRByDay$day, estimatedRByDay$R, xlab="days", ylab="R", ylim=c(0,20), pch=3, main="Effective R")
@@ -183,6 +189,7 @@ server <- function(input, output) {
     })
     
     output$estimatedPeak <- renderText({
+      
       tryCatch({
         reactiveEstimatedPeak()
       }, error=function(e) {})
@@ -192,7 +199,8 @@ server <- function(input, output) {
       
       tryCatch({
         est <- reactiveEstimate()
-        effectiveR <- est$estimates$TD$R[1:length(est$estimates$TD$R)-1]
+        effectiveR <- est$R[1:length(est$R)-1]
+        rm(est)
         as.array(summary(effectiveR))
       }, error=function(e) {
       })
