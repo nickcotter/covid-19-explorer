@@ -173,10 +173,10 @@ server <- function(input, output) {
     })
     
     output$dailyDiffPlot <- renderPlot({
-    
-      dailyCountAndPrediction <- reactiveDailyCountAndPrediction()
-      
-      barplot(dailyCountAndPrediction$countDiff ~ dailyCountAndPrediction$day, xlab="days", ylab="difference", main="Daily Increase")
+      tryCatch( {
+        dailyCountAndPrediction <- reactiveDailyCountAndPrediction()
+        barplot(dailyCountAndPrediction$countDiff ~ dailyCountAndPrediction$day, xlab="days", ylab="difference", main="Daily Increase")
+      }, error=function(e) {})
     })
     
     output$effectiveR <- renderPlot({
