@@ -65,7 +65,7 @@ ui <- fluidPage(
     # Application title
     titlePanel("COVID-19 Explorer"),
 
-    # Sidebar with a slider input for number of bins 
+    # Sidebar with a country selector 
     sidebarLayout(
         sidebarPanel(
           
@@ -105,7 +105,6 @@ ui <- fluidPage(
     )
 )
 
-# Define server logic required to draw a histogram
 server <- function(input, output) {
   
     reactiveGenerationTime <- reactive({
