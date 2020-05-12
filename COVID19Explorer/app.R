@@ -73,6 +73,10 @@ ui <- fluidPage(
           
             selectInput("countries", "Country", countries),
             
+            fluidRow(align="center", 
+                     helpText("Estimated Latest R"),
+                     textOutput("estimatedLatestR")),
+            
             fluidRow(align="center", tableOutput("effectiveRSummary")),
             
             helpText("Estimated Peak/Plateau Ends"),
@@ -192,6 +196,16 @@ server <- function(input, output) {
       tryCatch({
         reactiveEstimatedPeak()
       }, error=function(e) {})
+    })
+    
+    output$estimatedLatestR <- renderText({
+      
+      tryCatch({
+        e <- reactiveEstimatedRByDay()
+        round(tail(e$R, n=1), digits=2)
+      }, error=function(e) {
+      })
+      
     })
     
     output$effectiveRSummary <- renderTable({
