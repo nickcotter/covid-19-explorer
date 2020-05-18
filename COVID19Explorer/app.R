@@ -1,6 +1,7 @@
 library(shiny)
 library(dplyr)
 library(lubridate)
+library(shinycssloaders)
 library(R0)
 
 # load the latest data
@@ -75,13 +76,13 @@ ui <- fluidPage(
             
             fluidRow(align="center", 
                      helpText("Estimated Latest R"),
-                     textOutput("estimatedLatestR")),
+                     textOutput("estimatedLatestR") %>% withSpinner(color="#0dc5c1", proxy.height = "75px")),
             
-            fluidRow(align="center", tableOutput("effectiveRSummary")),
+            fluidRow(align="center", tableOutput("effectiveRSummary") %>% withSpinner(color="#0dc5c1", proxy.height = "200px")),
             
             helpText("Estimated Peak/Plateau Ends"),
             
-            fluidRow(align="center", textOutput("estimatedPeak")),
+            fluidRow(align="center", textOutput("estimatedPeak") %>% withSpinner(color="#0dc5c1", proxy.height = "75px")),
             
             helpText("Generation Time Distribution"),
             
@@ -102,9 +103,9 @@ ui <- fluidPage(
 
         # Show a plot of the generated distribution
         mainPanel(
-            plotOutput("effectiveR"),
-            plotOutput("dailyConfirmedPlot"),
-            plotOutput("dailyDiffPlot")
+            plotOutput("effectiveR") %>% withSpinner(color="#0dc5c1"),
+            plotOutput("dailyConfirmedPlot") %>% withSpinner(color="#0dc5c1"),
+            plotOutput("dailyDiffPlot") %>% withSpinner(color="#0dc5c1")
         )
     )
 )
@@ -137,8 +138,11 @@ server <- function(input, output) {
     })
     
     reactiveEstimatedPeak <- reactive({
-       estimatedR <- reactiveEstimatedRByDay();
-       if(length(estimatedR$day) > 10) {
+       estimatedR <- reactiveEstimatedRByDay()
+       
+       mostRecentR <- round(tail(estimatedR$R, n=1), digits=2)
+       
+       if(mostRecentR > 1 && length(estimatedR$day) > 10) {
          last10Days <- tail(estimatedR, n=10)
          fit <- lm(R ~ day, data=last10Days)
          fitSummary <- summary(fit)
