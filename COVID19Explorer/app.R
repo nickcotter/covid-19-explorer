@@ -2,11 +2,14 @@ library(shiny)
 library(dplyr)
 library(lubridate)
 library(shinycssloaders)
+library(ggplot2)
 library(R0)
 
 # load the latest data
 confirmed <- read.csv(url("https://raw.githubusercontent.com/CSSEGISandData/2019-nCoV/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")) %>%
               dplyr::select(-c(Lat, Long, ))   
+recovered <- read.csv(url("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv")) %>%
+  dplyr::select(-c(Lat, Long, ))   
 countries <- unique(confirmed$Country.Region)
 countries <- factor(append("Global", as.character(countries)))
 
@@ -18,28 +21,29 @@ getDailyCounts <- function(country) {
     
     filteredConfirmed <- confirmed %>%
         filter(country == "Global" | Country.Region == country)
-
     sums <- as.integer(colSums(filteredConfirmed[,-match(c("Province.State", "Country.Region"), names(filteredConfirmed))], na.rm=TRUE))
     sumsByDateCode <- as.data.frame(sums)
-    rm(sums)
-    rm(filteredConfirmed)
-    
     colnames(sumsByDateCode) <- c("count")
-    sumsByDateCode$datecode <- rownames(sumsByDateCode)
+    sumsByDateCode$day <- as.integer(rownames(sumsByDateCode))
     
-    dailyCounts <- mutate(sumsByDateCode, date = mdy(substring(datecode,2)))
-    rm(sumsByDateCode)
+    filteredRecovered <- recovered %>%
+      filter(country == "Global" | Country.Region == country)
+    recoveredSums <- as.integer(colSums(filteredRecovered[,-match(c("Province.State", "Country.Region"), names(filteredRecovered))], na.rm=TRUE))
+    recoveredSumsByDateCode <- as.data.frame(recoveredSums)
+    colnames(recoveredSumsByDateCode) <- c("count")
+    recoveredSumsByDateCode$day <- as.integer(rownames(recoveredSumsByDateCode))
     
-    gc()
-    
-    dailyCounts$day <- seq.int(nrow(dailyCounts))
-    dailyCounts %>%
-        dplyr::select(-c("datecode")) %>%
-        filter(count > 0)
+    dailyCounts <- sumsByDateCode %>%
+      merge(recoveredSumsByDateCode, by=c("day")) %>%
+      rename("count" = "count.x") %>%
+      rename("recovered" = "count.y") %>%
+      mutate(active = count - recovered) %>%
+      mutate(new_cases = count - lag(count, default=count[1])) %>%
+      filter(new_cases > 0)
 }
 
 generateEstimate <-function(dailyCounts, mgt) {
-  estimate.R(dailyCounts$count, methods=c("TD"), GT=mgt)$estimates$TD
+  estimate.R(dailyCounts$new_cases, end=length(dailyCounts$new_cases), methods=c("TD"), GT=mgt)$estimates$TD
 } 
 
 getDailyPredictions <- function(dailyCounts, est) {
@@ -51,7 +55,6 @@ getDailyPredictions <- function(dailyCounts, est) {
 
 getEstimatedRByDay <- function(est) {
     estimatedR <- est$R[1:length(est$R)-1]
-    #estimatedR <- est$estimates$TD$R[1:length(est$estimates$TD$R)-1]
     estDf <- as.data.frame(estimatedR)
     rm(estimatedR)
     gc()
@@ -80,10 +83,6 @@ ui <- fluidPage(
             
             fluidRow(align="center", tableOutput("effectiveRSummary") %>% withSpinner(color="#0dc5c1", proxy.height = "200px")),
             
-            helpText("Estimated Peak/Plateau Ends"),
-            
-            fluidRow(align="center", textOutput("estimatedPeak") %>% withSpinner(color="#0dc5c1", proxy.height = "75px")),
-            
             helpText("Generation Time Distribution"),
             
             numericInput("genTimeMean", "Mean", 5, min=0, step=0.5),
@@ -104,8 +103,7 @@ ui <- fluidPage(
         # Show a plot of the generated distribution
         mainPanel(
             plotOutput("effectiveR") %>% withSpinner(color="#0dc5c1"),
-            plotOutput("dailyConfirmedPlot") %>% withSpinner(color="#0dc5c1"),
-            plotOutput("dailyDiffPlot") %>% withSpinner(color="#0dc5c1")
+            plotOutput("dailyConfirmedPlot") %>% withSpinner(color="#0dc5c1")
         )
     )
 )
@@ -136,70 +134,18 @@ server <- function(input, output) {
     reactiveEstimatedRByDay <- reactive({
         getEstimatedRByDay(reactiveEstimate())
     })
-    
-    reactiveEstimatedPeak <- reactive({
-       estimatedR <- reactiveEstimatedRByDay()
-       
-       mostRecentR <- round(tail(estimatedR$R, n=1), digits=2)
-       
-       if(mostRecentR > 1 && length(estimatedR$day) > 10) {
-         last10Days <- tail(estimatedR, n=10)
-         fit <- lm(R ~ day, data=last10Days)
-         fitSummary <- summary(fit)
-         rm(fit)
-         intercept <- fitSummary$coefficients[1,1]
-         slope <- fitSummary$coefficients[2,1]
-         if(slope < 0) {
-           sig <- round(fitSummary$sigma, digits=2)
-           crossingDay <- (1 - intercept)/slope
-           daysFromNow <- round(crossingDay - tail(last10Days, n=1)$day, digits=0)
-           if(daysFromNow < 0) {
-             paste("~ ", daysFromNow, " days ago")
-           } else {
-             paste("in ~ ", daysFromNow, " days")
-           }
-         } else {
-           "-"
-         }
-       } else {
-         "-"
-       }
-    })
 
     output$dailyConfirmedPlot <- renderPlot({
-    
         dailyCountAndPrediction <- reactiveDailyCountAndPrediction()
-        
-        plot(dailyCountAndPrediction$day, dailyCountAndPrediction$count, xlab="days",ylab="count", col="red", main="Confirmed Cases")
-        
-        if("TD" %in% names(dailyCountAndPrediction)) {
-            lines(dailyCountAndPrediction$day, dailyCountAndPrediction$TD, col="green")
-        }
-        
-        legend(1, max(dailyCountAndPrediction$count)-10, legend=c("Actual", "Estimated"), col=c("red", "green"), lty=c(0,1), pch=c(1,NA), cex=0.8)
-    })
-    
-    output$dailyDiffPlot <- renderPlot({
-      tryCatch( {
-        dailyCountAndPrediction <- reactiveDailyCountAndPrediction()
-        barplot(dailyCountAndPrediction$countDiff ~ dailyCountAndPrediction$day, xlab="days", ylab="difference", main="Daily Increase")
-      }, error=function(e) {})
+        ggplot(dailyCountAndPrediction) + geom_col(aes(day, new_cases, col="actual")) + geom_line(aes(day, TD, col="estimated")) + ylab("new cases") + ggtitle("New Cases - Actual & Estimated") + scale_colour_manual(values=c("grey", "blue"))
     })
     
     output$effectiveR <- renderPlot({
       
         tryCatch({
             estimatedRByDay <- reactiveEstimatedRByDay()
-            plot(estimatedRByDay$day, estimatedRByDay$R, xlab="days", ylab="R", type="l", main="Effective R")
-            abline(h=1, col="gray60")
+            ggplot(estimatedRByDay) + geom_line(aes(day, R)) + ylab("R") + ggtitle("Effective R") + geom_hline(yintercept = 1, color="gray60")
         }, error=function(e) {})
-    })
-    
-    output$estimatedPeak <- renderText({
-      
-      tryCatch({
-        reactiveEstimatedPeak()
-      }, error=function(e) {})
     })
     
     output$estimatedLatestR <- renderText({
