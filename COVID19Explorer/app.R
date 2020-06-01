@@ -79,9 +79,9 @@ ui <- fluidPage(
             
             fluidRow(align="center", 
                      helpText("Estimated Latest R"),
-                     h1(htmlOutput("estimatedLatestR")) %>% withSpinner(color="#0dc5c1", proxy.height = "0px")),
+                     h1(htmlOutput("estimatedLatestR"))),
             
-            fluidRow(align="center", tableOutput("effectiveRSummary") %>% withSpinner(color="#0dc5c1", proxy.height = "200px")),
+            fluidRow(align="center", tableOutput("effectiveRSummary")),
             
             helpText("Generation Time Distribution"),
             
@@ -102,8 +102,8 @@ ui <- fluidPage(
 
         # Show a plot of the generated distribution
         mainPanel(
-            plotOutput("effectiveR") %>% withSpinner(color="#0dc5c1"),
-            plotOutput("dailyConfirmedPlot") %>% withSpinner(color="#0dc5c1")
+            plotOutput("effectiveR") %>% withSpinner(color="#0dc5c1", type=4),
+            plotOutput("dailyConfirmedPlot") %>% withSpinner(color="#0dc5c1", type=4)
         )
     )
 )
