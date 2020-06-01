@@ -159,19 +159,28 @@ server <- function(input, output) {
         e <- reactiveEstimatedRByDay()
         latestR <- tail(e$R, n=1)
         
+        col <- "black"
+        if(latestR > 1) {
+          col <- "red"
+        } else if(latestR < 1) {
+          col <- "green"
+        }
+        
         latestRoundedR <- round(latestR, digits=2)
+        
+        codedR <- paste("<font color='", col, "'>", latestRoundedR, "</font>")
         
         if(length(e$R > 1)) {
           penultimateR <- tail(e$R, n=2)[1]
           if(penultimateR < latestR) {
-            paste(latestRoundedR, "<i class='fas fa-arrow-up'></i>")
+            paste(codedR, "<i class='fas fa-arrow-up'></i>")
           } else if(penultimateR > latestR) {
-            paste(latestRoundedR, "<i class='fas fa-arrow-down'></i>")
+            paste(codedR, "<i class='fas fa-arrow-down'></i>")
           } else {
-            latestRoundedR
+            codedR
           }
         } else {
-          latestRoundedR
+          codedR
         }
       }, error=function(e) {
       })
