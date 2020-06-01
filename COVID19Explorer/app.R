@@ -76,10 +76,12 @@ ui <- fluidPage(
             helpText("Plot cases and effective reproduction number globally or by country for COVID-19"),
           
             selectInput("countries", "Country", countries),
+
+            div(icon("arrow-up"), style="display:none"),
             
-            fluidRow(align="center", 
+            fluidRow(align="center",
                      helpText("Estimated Latest R"),
-                     h1(htmlOutput("estimatedLatestR"))),
+                     h2(htmlOutput("estimatedLatestR"))),
             
             fluidRow(align="center", tableOutput("effectiveRSummary")),
             
@@ -155,25 +157,22 @@ server <- function(input, output) {
       
       tryCatch({
         e <- reactiveEstimatedRByDay()
-        print(length(e$R))
         latestR <- tail(e$R, n=1)
+        
         latestRoundedR <- round(latestR, digits=2)
         
-        if(length(e$R) > 1) {
+        if(length(e$R > 1)) {
           penultimateR <- tail(e$R, n=2)[1]
-          if(penultimateR > latestR) {
-            paste("<font color=\"#00FF00\"><b>", latestRoundedR, "</b></font>")
-          } else if(penultimateR < latestR) {
-            paste("<font color=\"#FF0000\"><b>", latestRoundedR, "</b></font>")
+          if(penultimateR < latestR) {
+            paste(latestRoundedR, "<i class='fas fa-arrow-up'></i>")
+          } else if(penultimateR > latestR) {
+            paste(latestRoundedR, "<i class='fas fa-arrow-down'></i>")
           } else {
             latestRoundedR
           }
         } else {
           latestRoundedR
         }
-        
-        
-        #paste("<font color=\"#FF0000\"><b>", latestRoundedR, "</b></font>")
       }, error=function(e) {
       })
     })
