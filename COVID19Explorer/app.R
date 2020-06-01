@@ -79,7 +79,7 @@ ui <- fluidPage(
             
             fluidRow(align="center", 
                      helpText("Estimated Latest R"),
-                     textOutput("estimatedLatestR") %>% withSpinner(color="#0dc5c1", proxy.height = "75px")),
+                     h1(htmlOutput("estimatedLatestR")) %>% withSpinner(color="#0dc5c1", proxy.height = "0px")),
             
             fluidRow(align="center", tableOutput("effectiveRSummary") %>% withSpinner(color="#0dc5c1", proxy.height = "200px")),
             
@@ -155,10 +155,27 @@ server <- function(input, output) {
       
       tryCatch({
         e <- reactiveEstimatedRByDay()
-        round(tail(e$R, n=1), digits=2)
+        print(length(e$R))
+        latestR <- tail(e$R, n=1)
+        latestRoundedR <- round(latestR, digits=2)
+        
+        if(length(e$R) > 1) {
+          penultimateR <- tail(e$R, n=2)[1]
+          if(penultimateR > latestR) {
+            paste("<font color=\"#00FF00\"><b>", latestRoundedR, "</b></font>")
+          } else if(penultimateR < latestR) {
+            paste("<font color=\"#FF0000\"><b>", latestRoundedR, "</b></font>")
+          } else {
+            latestRoundedR
+          }
+        } else {
+          latestRoundedR
+        }
+        
+        
+        #paste("<font color=\"#FF0000\"><b>", latestRoundedR, "</b></font>")
       }, error=function(e) {
       })
-      
     })
     
     output$effectiveRSummary <- renderTable({
