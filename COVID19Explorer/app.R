@@ -137,14 +137,17 @@ server <- function(input, output) {
 
     output$dailyConfirmedPlot <- renderPlot({
         dailyCountAndPrediction <- reactiveDailyCountAndPrediction()
-        ggplot(dailyCountAndPrediction) + geom_col(aes(day, new_cases, col="actual")) + geom_line(aes(day, TD, col="estimated")) + ylab("new cases") + ggtitle("New Cases - Actual & Estimated") + scale_colour_manual(values=c("grey", "blue"))
+        ggplot(dailyCountAndPrediction) + geom_col(aes(day, new_cases, col="actual")) + geom_line(aes(day, TD, col="estimated")) +
+          xlab("days since first case") + ylab("new cases") + ggtitle("New Cases - Actual & Estimated") + scale_colour_manual(values=c("grey", "blue")) + 
+          theme(plot.title = element_text(hjust = 0.5))
     })
     
     output$effectiveR <- renderPlot({
       
         tryCatch({
             estimatedRByDay <- reactiveEstimatedRByDay()
-            ggplot(estimatedRByDay) + geom_line(aes(day, R)) + ylab("R") + ggtitle("Effective R") + geom_hline(yintercept = 1, color="gray60")
+            ggplot(estimatedRByDay) + geom_line(aes(day, R)) + xlab("days since first case") + ylab("R") + ggtitle("Effective R") + geom_hline(yintercept = 1, color="gray60") +
+              theme(plot.title = element_text(hjust = 0.5))
         }, error=function(e) {})
     })
     
