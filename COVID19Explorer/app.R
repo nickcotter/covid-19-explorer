@@ -4,7 +4,7 @@ library(shinycssloaders)
 library(ggplot2)
 library(lubridate)
 library(R0)
-library(data.table)
+library(zoo)
 
 # load the latest data
 confirmed <- read.csv(url("https://raw.githubusercontent.com/CSSEGISandData/2019-nCoV/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")) %>%
@@ -14,7 +14,7 @@ countries <- unique(confirmed$Country.Region)
 countries <- factor(append("Global", as.character(countries)))
 
 getGenerationTime <- function(m, s) {
-  generation.time("gamma", c(m, s))
+  generation.time("gamma", c(m, s), truncate = 36)
 }
 
 getEpidemicCurve <- function(country) {
@@ -22,42 +22,42 @@ getEpidemicCurve <- function(country) {
     filter(country == "Global" | Country.Region == country)
   sums <- as.integer(colSums(filteredConfirmed[,-match(c("Province.State", "Country.Region"), names(filteredConfirmed))], na.rm=TRUE))
   newCases <- diff(sums)
-  #newCases <- as.integer(frollmean(newCases, 3, fill=0))
   dateCodes <- sub(".", "", colnames(filteredConfirmed)[4:(length(newCases)+3)])
+  
+  rm(filteredConfirmed)
+  gc()
+  
   dates <- mdy(dateCodes)
   structure(newCases, names = as.character(dates))
 }
 
 estimateEffectiveR <- function(epidemicCurve, generationTime) {
   
-  print(epidemicCurve)
-  
   meanRange <- 1
   while(meanRange < 10) {
     print(meanRange)
-    meanEpidemicCurve <- as.integer(frollmean(epidemicCurve, meanRange, fill=0))
+    meanEpidemicCurve <- rollmean(epidemicCurve, meanRange, fill=0)
     tryCatch({
       firstIndex <- which(meanEpidemicCurve > 0)[[1]]
-      r <- estimate.R(meanEpidemicCurve[firstIndex:length(meanEpidemicCurve)], methods=c("TD"), GT=generationTime)$estimates$TD$R
+      print(firstIndex)
+      r <- estimate.R(meanEpidemicCurve[firstIndex:length(meanEpidemicCurve)], methods=c("TD"), GT=generationTime, nsim=100)$estimates$TD
       return(r)
     }, error=function(e) {
       print(e)
     })
+    rm(meanEpidemicCurve)
+    gc()
     meanRange <- meanRange + 1
   }
-  
-  # firstIndex <- which(epidemicCurve > 0)[[1]]
-  # r <- estimate.R(epidemicCurve[firstIndex:length(epidemicCurve)], methods=c("TD"), GT=generationTime)$estimates$TD$R
-  # r[1:length(r)-1]
 }
 
 plotEffectiveR <- function(r) {
-  plot(r, type="l")
+  plot(r$R, type="l", ylab = "R", xlab = "Days Since First Case")
   abline(h=1)
 }
 
-plotNewCases <- function(epidemicCurve) {
-  plot(epidemicCurve, type="l")
+plotNewCases <- function(r) {
+  plot(r$epid$t, r$epid$incid, type="l", ylab = "New Cases", xlab = "Date")
 }
 
 # Define UI for application that draws a histogram
@@ -134,7 +134,7 @@ server <- function(input, output) {
     output$newCases <- renderPlot({
       
       tryCatch({
-        plotNewCases(reactiveEpidemicCurve())
+        plotNewCases(reactiveEstimateEffectiveR())
       }, error=function(e) {
         print(e)
       })
@@ -147,7 +147,7 @@ server <- function(input, output) {
         
         e <- reactiveEstimateEffectiveR()
         
-        latestR <- e[length(e)]
+        latestR <- e$R[length(e$R)]
         
         col <- "black"
         if(latestR > 1) {
@@ -160,8 +160,8 @@ server <- function(input, output) {
         
         codedR <- paste("<font color='", col, "'>", latestRoundedR, "</font>")
         
-        if(length(e > 1)) {
-          penultimateR <- e[length(e)-1]
+        if(length(e$R > 1)) {
+          penultimateR <- e$R[length(e$R)-1]
           #penultimateR <- tail(e$R, n=2)[1]
           if(penultimateR < latestR) {
             paste(codedR, "<i class='fas fa-arrow-up'></i>")
@@ -174,13 +174,14 @@ server <- function(input, output) {
           codedR
         }
       }, error=function(e) {
+        print(e)
       })
     })
     
     output$effectiveRSummary <- renderTable({
       
       tryCatch({
-        as.array(summary(reactiveEstimateEffectiveR()))
+        as.array(summary(reactiveEstimateEffectiveR()$R))
       }, error=function(e) {
       })
     
