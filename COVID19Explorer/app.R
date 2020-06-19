@@ -2,8 +2,9 @@ library(shiny)
 library(dplyr)
 library(shinycssloaders)
 library(ggplot2)
+library(lubridate)
 library(R0)
-
+library(data.table)
 
 # load the latest data
 confirmed <- read.csv(url("https://raw.githubusercontent.com/CSSEGISandData/2019-nCoV/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")) %>%
@@ -16,42 +17,47 @@ getGenerationTime <- function(m, s) {
   generation.time("gamma", c(m, s))
 }
 
-getDailyCounts <- function(country) {
-    
-    filteredConfirmed <- confirmed %>%
-        filter(country == "Global" | Country.Region == country)
-    sums <- as.integer(colSums(filteredConfirmed[,-match(c("Province.State", "Country.Region"), names(filteredConfirmed))], na.rm=TRUE))
-    sumsByDateCode <- as.data.frame(sums)
-    rm(sums)
-    gc()
-    colnames(sumsByDateCode) <- c("count")
-    sumsByDateCode$day <- as.integer(rownames(sumsByDateCode))
-    
-    dailyCounts <- sumsByDateCode %>%
-      mutate(new_cases = count - lag(count, default=count[1])) %>%
-      filter(new_cases > 0) %>%
-      dplyr::select(-c(count))
+getEpidemicCurve <- function(country) {
+  filteredConfirmed <- confirmed %>%
+    filter(country == "Global" | Country.Region == country)
+  sums <- as.integer(colSums(filteredConfirmed[,-match(c("Province.State", "Country.Region"), names(filteredConfirmed))], na.rm=TRUE))
+  newCases <- diff(sums)
+  #newCases <- as.integer(frollmean(newCases, 3, fill=0))
+  dateCodes <- sub(".", "", colnames(filteredConfirmed)[4:(length(newCases)+3)])
+  dates <- mdy(dateCodes)
+  structure(newCases, names = as.character(dates))
 }
 
-generateEstimate <-function(dailyCounts, mgt) {
-  estimate.R(dailyCounts$new_cases, end=length(dailyCounts$new_cases), methods=c("TD"), GT=mgt)$estimates$TD$R
-} 
-
-getDailyPredictions <- function(dailyCounts, est) {
-    dailyCountAndPrediction <- merge(dailyCounts, est$pred, by="row.names", sort=FALSE, all=TRUE) %>%
-      dplyr::select(-c("Row.names")) %>%
-      dplyr::rename(TD = y) 
+estimateEffectiveR <- function(epidemicCurve, generationTime) {
+  
+  print(epidemicCurve)
+  
+  meanRange <- 1
+  while(meanRange < 10) {
+    print(meanRange)
+    meanEpidemicCurve <- as.integer(frollmean(epidemicCurve, meanRange, fill=0))
+    tryCatch({
+      firstIndex <- which(meanEpidemicCurve > 0)[[1]]
+      r <- estimate.R(meanEpidemicCurve[firstIndex:length(meanEpidemicCurve)], methods=c("TD"), GT=generationTime)$estimates$TD$R
+      return(r)
+    }, error=function(e) {
+      print(e)
+    })
+    meanRange <- meanRange + 1
+  }
+  
+  # firstIndex <- which(epidemicCurve > 0)[[1]]
+  # r <- estimate.R(epidemicCurve[firstIndex:length(epidemicCurve)], methods=c("TD"), GT=generationTime)$estimates$TD$R
+  # r[1:length(r)-1]
 }
 
-getEstimatedRByDay <- function(est) {
+plotEffectiveR <- function(r) {
+  plot(r, type="l")
+  abline(h=1)
+}
 
-    estimatedR <- est[1:length(est)-1]
-    estDf <- as.data.frame(estimatedR)
-    rm(estimatedR)
-    colnames(estDf) <- c("R")
-    estDf$day <- as.numeric(rownames(estDf))
-    
-    estDf
+plotNewCases <- function(epidemicCurve) {
+  plot(epidemicCurve, type="l")
 }
 
 # Define UI for application that draws a histogram
@@ -95,8 +101,8 @@ ui <- fluidPage(
 
         # Show a plot of the generated distribution
         mainPanel(
-            plotOutput("effectiveR") %>% withSpinner(color="#0dc5c1", type=4),
-            plotOutput("dailyConfirmedPlot") %>% withSpinner(color="#0dc5c1", type=4)
+            plotOutput("newCases") %>% withSpinner(color="#0dc5c1", type=4),
+            plotOutput("effectiveR") %>% withSpinner(color="#0dc5c1", type=4)
         )
     )
 )
@@ -107,47 +113,41 @@ server <- function(input, output) {
       getGenerationTime(input$genTimeMean, input$genTimeStdDev)
     })
     
-    reactiveDailyCounts <- reactive({
-        getDailyCounts(input$countries)
-    })
-
-    reactiveEstimate <- reactive({
-        generateEstimate(reactiveDailyCounts(), reactiveGenerationTime())
+    reactiveEpidemicCurve <- reactive({
+      getEpidemicCurve(input$countries)
     })
     
-    reactiveDailyCountAndPrediction <- reactive({
-        tryCatch({
-            getDailyPredictions(reactiveDailyCounts(), reactiveEstimate())
-        }, error=function(e) {
-          print(e)
-        })
-    })
-    
-    reactiveEstimatedRByDay <- reactive({
-        getEstimatedRByDay(reactiveEstimate())
-    })
-
-    output$dailyConfirmedPlot <- renderPlot({
-      reactiveDailyCounts() %>%
-        ggplot() + geom_col(aes(day, new_cases)) +
-          xlab("days since first case") + ylab("new cases") + ggtitle("New Cases") + 
-          theme(plot.title = element_text(hjust = 0.5))
+    reactiveEstimateEffectiveR <- reactive({
+      estimateEffectiveR(reactiveEpidemicCurve(), reactiveGenerationTime())
     })
     
     output$effectiveR <- renderPlot({
       
-        tryCatch({
-          reactiveEstimatedRByDay() %>%
-            ggplot() + geom_line(aes(day, R)) + xlab("days since first case") + ylab("R") + ggtitle("Effective R") + geom_hline(yintercept = 1, color="gray60") +
-              theme(plot.title = element_text(hjust = 0.5))
-        }, error=function(e) {})
+      tryCatch({
+        plotEffectiveR(reactiveEstimateEffectiveR())
+      }, error=function(e) {
+        print(e)
+      })
+      
+    })
+    
+    output$newCases <- renderPlot({
+      
+      tryCatch({
+        plotNewCases(reactiveEpidemicCurve())
+      }, error=function(e) {
+        print(e)
+      })
+      
     })
     
     output$estimatedLatestR <- renderText({
       
       tryCatch({
-        e <- reactiveEstimatedRByDay()
-        latestR <- tail(e$R, n=1)
+        
+        e <- reactiveEstimateEffectiveR()
+        
+        latestR <- e[length(e)]
         
         col <- "black"
         if(latestR > 1) {
@@ -160,8 +160,9 @@ server <- function(input, output) {
         
         codedR <- paste("<font color='", col, "'>", latestRoundedR, "</font>")
         
-        if(length(e$R > 1)) {
-          penultimateR <- tail(e$R, n=2)[1]
+        if(length(e > 1)) {
+          penultimateR <- e[length(e)-1]
+          #penultimateR <- tail(e$R, n=2)[1]
           if(penultimateR < latestR) {
             paste(codedR, "<i class='fas fa-arrow-up'></i>")
           } else if(penultimateR > latestR) {
@@ -179,10 +180,7 @@ server <- function(input, output) {
     output$effectiveRSummary <- renderTable({
       
       tryCatch({
-        est <- reactiveEstimate()
-        effectiveR <- est$R[1:length(est$R)-1]
-        rm(est)
-        as.array(summary(effectiveR))
+        as.array(summary(reactiveEstimateEffectiveR()))
       }, error=function(e) {
       })
     
