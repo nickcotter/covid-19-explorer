@@ -34,26 +34,23 @@ getDailyCounts <- function(country) {
 }
 
 generateEstimate <-function(dailyCounts, mgt) {
-  e <- estimate.R(dailyCounts$new_cases, end=length(dailyCounts$new_cases), methods=c("TD"), GT=mgt)$estimates$TD
-  gc()
-  e
+  estimate.R(dailyCounts$new_cases, end=length(dailyCounts$new_cases), methods=c("TD"), GT=mgt)$estimates$TD$R
 } 
 
 getDailyPredictions <- function(dailyCounts, est) {
     dailyCountAndPrediction <- merge(dailyCounts, est$pred, by="row.names", sort=FALSE, all=TRUE) %>%
       dplyr::select(-c("Row.names")) %>%
       dplyr::rename(TD = y) 
-    gc()
-    dailyCountAndPrediction
 }
 
 getEstimatedRByDay <- function(est) {
-    estimatedR <- est$R[1:length(est$R)-1]
+
+    estimatedR <- est[1:length(est)-1]
     estDf <- as.data.frame(estimatedR)
     rm(estimatedR)
-    gc()
     colnames(estDf) <- c("R")
     estDf$day <- as.numeric(rownames(estDf))
+    
     estDf
 }
 
@@ -131,16 +128,16 @@ server <- function(input, output) {
     })
 
     output$dailyConfirmedPlot <- renderPlot({
-      reactiveDailyCountAndPrediction() %>%
-        ggplot() + geom_col(aes(day, new_cases, col="actual")) + geom_line(aes(day, TD, col="estimated")) +
-          xlab("days since first case") + ylab("new cases") + ggtitle("New Cases - Actual & Estimated") + scale_colour_manual(values=c("grey", "blue")) + 
+      reactiveDailyCounts() %>%
+        ggplot() + geom_col(aes(day, new_cases)) +
+          xlab("days since first case") + ylab("new cases") + ggtitle("New Cases") + 
           theme(plot.title = element_text(hjust = 0.5))
     })
     
     output$effectiveR <- renderPlot({
       
         tryCatch({
-            reactiveEstimatedRByDay() %>%
+          reactiveEstimatedRByDay() %>%
             ggplot() + geom_line(aes(day, R)) + xlab("days since first case") + ylab("R") + ggtitle("Effective R") + geom_hline(yintercept = 1, color="gray60") +
               theme(plot.title = element_text(hjust = 0.5))
         }, error=function(e) {})
