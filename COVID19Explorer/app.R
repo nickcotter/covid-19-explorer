@@ -8,8 +8,7 @@ library(R0)
 # load the latest data
 confirmed <- read.csv(url("https://raw.githubusercontent.com/CSSEGISandData/2019-nCoV/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")) %>%
               dplyr::select(-c(Lat, Long, ))   
-# recovered <- read.csv(url("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv")) %>%
-#   dplyr::select(-c(Lat, Long, ))   
+
 countries <- unique(confirmed$Country.Region)
 countries <- factor(append("Global", as.character(countries)))
 
@@ -23,23 +22,14 @@ getDailyCounts <- function(country) {
         filter(country == "Global" | Country.Region == country)
     sums <- as.integer(colSums(filteredConfirmed[,-match(c("Province.State", "Country.Region"), names(filteredConfirmed))], na.rm=TRUE))
     sumsByDateCode <- as.data.frame(sums)
+    rm(sums)
     colnames(sumsByDateCode) <- c("count")
     sumsByDateCode$day <- as.integer(rownames(sumsByDateCode))
     
-    # filteredRecovered <- recovered %>%
-    #   filter(country == "Global" | Country.Region == country)
-    # recoveredSums <- as.integer(colSums(filteredRecovered[,-match(c("Province.State", "Country.Region"), names(filteredRecovered))], na.rm=TRUE))
-    # recoveredSumsByDateCode <- as.data.frame(recoveredSums)
-    # colnames(recoveredSumsByDateCode) <- c("count")
-    # recoveredSumsByDateCode$day <- as.integer(rownames(recoveredSumsByDateCode))
-    
     dailyCounts <- sumsByDateCode %>%
-      #merge(recoveredSumsByDateCode, by=c("day")) %>%
-      #rename("count" = "count.x") %>%
-      #rename("recovered" = "count.y") %>%
-      #mutate(active = count - recovered) %>%
       mutate(new_cases = count - lag(count, default=count[1])) %>%
-      filter(new_cases > 0)
+      filter(new_cases > 0) %>%
+      dplyr::select(-c(count))
 }
 
 generateEstimate <-function(dailyCounts, mgt) {
@@ -49,15 +39,13 @@ generateEstimate <-function(dailyCounts, mgt) {
 getDailyPredictions <- function(dailyCounts, est) {
     dailyCountAndPrediction <- merge(dailyCounts, est$pred, by="row.names", sort=FALSE, all=TRUE) %>%
       dplyr::select(-c("Row.names")) %>%
-      dplyr::rename(TD = y) %>%
-      mutate(countDiff = count - lag(count))
+      dplyr::rename(TD = y) 
 }
 
 getEstimatedRByDay <- function(est) {
     estimatedR <- est$R[1:length(est$R)-1]
     estDf <- as.data.frame(estimatedR)
     rm(estimatedR)
-    gc()
     colnames(estDf) <- c("R")
     estDf$day <- as.numeric(rownames(estDf))
     estDf
