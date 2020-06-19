@@ -23,6 +23,7 @@ getDailyCounts <- function(country) {
     sums <- as.integer(colSums(filteredConfirmed[,-match(c("Province.State", "Country.Region"), names(filteredConfirmed))], na.rm=TRUE))
     sumsByDateCode <- as.data.frame(sums)
     rm(sums)
+    gc()
     colnames(sumsByDateCode) <- c("count")
     sumsByDateCode$day <- as.integer(rownames(sumsByDateCode))
     
@@ -33,19 +34,24 @@ getDailyCounts <- function(country) {
 }
 
 generateEstimate <-function(dailyCounts, mgt) {
-  estimate.R(dailyCounts$new_cases, end=length(dailyCounts$new_cases), methods=c("TD"), GT=mgt)$estimates$TD
+  e <- estimate.R(dailyCounts$new_cases, end=length(dailyCounts$new_cases), methods=c("TD"), GT=mgt)$estimates$TD
+  gc()
+  e
 } 
 
 getDailyPredictions <- function(dailyCounts, est) {
     dailyCountAndPrediction <- merge(dailyCounts, est$pred, by="row.names", sort=FALSE, all=TRUE) %>%
       dplyr::select(-c("Row.names")) %>%
       dplyr::rename(TD = y) 
+    gc()
+    dailyCountAndPrediction
 }
 
 getEstimatedRByDay <- function(est) {
     estimatedR <- est$R[1:length(est$R)-1]
     estDf <- as.data.frame(estimatedR)
     rm(estimatedR)
+    gc()
     colnames(estDf) <- c("R")
     estDf$day <- as.numeric(rownames(estDf))
     estDf
@@ -117,7 +123,6 @@ server <- function(input, output) {
             getDailyPredictions(reactiveDailyCounts(), reactiveEstimate())
         }, error=function(e) {
           print(e)
-            reactiveDailyCounts()
         })
     })
     
@@ -126,8 +131,8 @@ server <- function(input, output) {
     })
 
     output$dailyConfirmedPlot <- renderPlot({
-        dailyCountAndPrediction <- reactiveDailyCountAndPrediction()
-        ggplot(dailyCountAndPrediction) + geom_col(aes(day, new_cases, col="actual")) + geom_line(aes(day, TD, col="estimated")) +
+      reactiveDailyCountAndPrediction() %>%
+        ggplot() + geom_col(aes(day, new_cases, col="actual")) + geom_line(aes(day, TD, col="estimated")) +
           xlab("days since first case") + ylab("new cases") + ggtitle("New Cases - Actual & Estimated") + scale_colour_manual(values=c("grey", "blue")) + 
           theme(plot.title = element_text(hjust = 0.5))
     })
@@ -135,8 +140,8 @@ server <- function(input, output) {
     output$effectiveR <- renderPlot({
       
         tryCatch({
-            estimatedRByDay <- reactiveEstimatedRByDay()
-            ggplot(estimatedRByDay) + geom_line(aes(day, R)) + xlab("days since first case") + ylab("R") + ggtitle("Effective R") + geom_hline(yintercept = 1, color="gray60") +
+            reactiveEstimatedRByDay() %>%
+            ggplot() + geom_line(aes(day, R)) + xlab("days since first case") + ylab("R") + ggtitle("Effective R") + geom_hline(yintercept = 1, color="gray60") +
               theme(plot.title = element_text(hjust = 0.5))
         }, error=function(e) {})
     })
