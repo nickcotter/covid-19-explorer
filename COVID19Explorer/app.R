@@ -8,8 +8,8 @@ library(R0)
 # load the latest data
 confirmed <- read.csv(url("https://raw.githubusercontent.com/CSSEGISandData/2019-nCoV/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")) %>%
               dplyr::select(-c(Lat, Long, ))   
-recovered <- read.csv(url("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv")) %>%
-  dplyr::select(-c(Lat, Long, ))   
+# recovered <- read.csv(url("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv")) %>%
+#   dplyr::select(-c(Lat, Long, ))   
 countries <- unique(confirmed$Country.Region)
 countries <- factor(append("Global", as.character(countries)))
 
@@ -26,18 +26,18 @@ getDailyCounts <- function(country) {
     colnames(sumsByDateCode) <- c("count")
     sumsByDateCode$day <- as.integer(rownames(sumsByDateCode))
     
-    filteredRecovered <- recovered %>%
-      filter(country == "Global" | Country.Region == country)
-    recoveredSums <- as.integer(colSums(filteredRecovered[,-match(c("Province.State", "Country.Region"), names(filteredRecovered))], na.rm=TRUE))
-    recoveredSumsByDateCode <- as.data.frame(recoveredSums)
-    colnames(recoveredSumsByDateCode) <- c("count")
-    recoveredSumsByDateCode$day <- as.integer(rownames(recoveredSumsByDateCode))
+    # filteredRecovered <- recovered %>%
+    #   filter(country == "Global" | Country.Region == country)
+    # recoveredSums <- as.integer(colSums(filteredRecovered[,-match(c("Province.State", "Country.Region"), names(filteredRecovered))], na.rm=TRUE))
+    # recoveredSumsByDateCode <- as.data.frame(recoveredSums)
+    # colnames(recoveredSumsByDateCode) <- c("count")
+    # recoveredSumsByDateCode$day <- as.integer(rownames(recoveredSumsByDateCode))
     
     dailyCounts <- sumsByDateCode %>%
-      merge(recoveredSumsByDateCode, by=c("day")) %>%
-      rename("count" = "count.x") %>%
-      rename("recovered" = "count.y") %>%
-      mutate(active = count - recovered) %>%
+      #merge(recoveredSumsByDateCode, by=c("day")) %>%
+      #rename("count" = "count.x") %>%
+      #rename("recovered" = "count.y") %>%
+      #mutate(active = count - recovered) %>%
       mutate(new_cases = count - lag(count, default=count[1])) %>%
       filter(new_cases > 0)
 }
