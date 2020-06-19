@@ -1,9 +1,9 @@
 library(shiny)
 library(dplyr)
-library(lubridate)
 library(shinycssloaders)
 library(ggplot2)
 library(R0)
+
 
 # load the latest data
 confirmed <- read.csv(url("https://raw.githubusercontent.com/CSSEGISandData/2019-nCoV/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")) %>%

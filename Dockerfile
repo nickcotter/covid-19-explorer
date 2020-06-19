@@ -21,7 +21,7 @@ RUN wget --no-verbose https://s3.amazonaws.com/rstudio-shiny-server-os-build/ubu
 
 # Install R packages that are required
 # TODO: add further package if you need!
-RUN R -e "install.packages(c('shiny', 'shinydashboard', 'dplyr', 'lubridate', 'R0', 'shinycssloaders', 'remotes', 'ggplot2'), repos='http://cran.rstudio.com/')"
+RUN R -e "install.packages(c('shiny', 'shinydashboard', 'dplyr', 'R0', 'shinycssloaders', 'remotes', 'ggplot2'), repos='http://cran.rstudio.com/')"
 
 # install rstudion/httpuv to enable compatibility with google cloud run https://github.com/rstudio/shiny/issues/2455
 RUN R -e "remotes::install_github(c('rstudio/httpuv'))"
