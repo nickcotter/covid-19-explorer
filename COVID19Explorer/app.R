@@ -57,7 +57,11 @@ plotEffectiveR <- function(r) {
 }
 
 plotNewCases <- function(r) {
-  plot(r$epid$t, r$epid$incid, type="l", ylab = "New Cases", xlab = "Date")
+  
+  df <- as.data.frame(r$epid)
+  
+  ggplot(df) + aes(x=t, y=incid) + geom_col() + xlab("Date") + ylab("New Cases")
+  #plot(r$epid$t, r$epid$incid, type="l", ylab = "New Cases", xlab = "Date")
 }
 
 # Define UI for application that draws a histogram
