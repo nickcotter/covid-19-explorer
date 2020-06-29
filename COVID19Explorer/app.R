@@ -52,16 +52,13 @@ estimateEffectiveR <- function(epidemicCurve, generationTime) {
 }
 
 plotEffectiveR <- function(r) {
-  plot(r$R, type="l", ylab = "R", xlab = "Days Since First Case")
+  plot(r$R[1:length(r$R)-1], type="l", ylab = "R", xlab = "Days Since First Case")
   abline(h=1)
 }
 
 plotNewCases <- function(r) {
-  
   df <- as.data.frame(r$epid)
-  
   ggplot(df) + aes(x=t, y=incid) + geom_col() + xlab("Date") + ylab("New Cases")
-  #plot(r$epid$t, r$epid$incid, type="l", ylab = "New Cases", xlab = "Date")
 }
 
 # Define UI for application that draws a histogram
@@ -151,7 +148,7 @@ server <- function(input, output) {
         
         e <- reactiveEstimateEffectiveR()
         
-        latestR <- e$R[length(e$R)]
+        latestR <- e$R[length(e$R)-1]
         
         col <- "black"
         if(latestR > 1) {
@@ -164,9 +161,8 @@ server <- function(input, output) {
         
         codedR <- paste("<font color='", col, "'>", latestRoundedR, "</font>")
         
-        if(length(e$R > 1)) {
-          penultimateR <- e$R[length(e$R)-1]
-          #penultimateR <- tail(e$R, n=2)[1]
+        if(length(e$R > 2)) {
+          penultimateR <- e$R[length(e$R)-2]
           if(penultimateR < latestR) {
             paste(codedR, "<i class='fas fa-arrow-up'></i>")
           } else if(penultimateR > latestR) {
