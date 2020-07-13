@@ -102,8 +102,16 @@ ui <- fluidPage(
             div(icon("arrow-up"), style="display:none"),
             
             fluidRow(align="center",
+                     helpText("Total Cases"),
+                     h2(htmlOutput("totalCases") %>% withSpinner(color="#0dc5c1", type=4))),
+            
+            fluidRow(align="center",
+                     helpText("Total Deaths"),
+                     h2(htmlOutput("totalDeaths") %>% withSpinner(color="#0dc5c1", type=4))),
+            
+            fluidRow(align="center",
                      helpText("Estimated Latest R"),
-                     h2(htmlOutput("estimatedLatestR"))),
+                     h2(htmlOutput("estimatedLatestR") %>% withSpinner(color="#0dc5c1", type=4))),
             
             fluidRow(align="center", tableOutput("effectiveRSummary")),
             
@@ -168,6 +176,14 @@ server <- function(input, output) {
         print(e)
       })
       
+    })
+    
+    output$totalCases <- renderText({
+      sum(reactiveEpidemicCurve())
+    })
+    
+    output$totalDeaths <- renderText({
+      sum(reactiveNewDeaths()$deaths)
     })
     
     output$estimatedLatestR <- renderText({
