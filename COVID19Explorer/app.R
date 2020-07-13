@@ -10,8 +10,27 @@ library(zoo)
 confirmed <- read.csv(url("https://raw.githubusercontent.com/CSSEGISandData/2019-nCoV/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")) %>%
               dplyr::select(-c(Lat, Long, ))   
 
+deaths <- read.csv(url("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv")) %>%
+              dplyr::select(-c(Lat, Long))
+
 countries <- unique(confirmed$Country.Region)
 countries <- factor(append("Global", as.character(countries)))
+
+
+getNewDeaths <- function(country) {
+  filteredDeaths <- deaths %>%
+    filter(country == "Global" | Country.Region == country)
+  
+  sums <- as.integer(colSums(filteredDeaths[,-match(c("Province.State", "Country.Region"), names(filteredDeaths))], na.rm=TRUE))
+  newDeaths <- diff(sums)
+  dateCodes <- sub(".", "", colnames(filteredDeaths)[4:(length(newDeaths)+3)])
+  rm(filteredConfirmed)
+  gc()
+  
+  dates <- mdy(dateCodes)
+  
+  data.frame(date=dates, deaths=newDeaths)
+}
 
 getGenerationTime <- function(m, s) {
   generation.time("gamma", c(m, s), truncate = 36)
@@ -35,7 +54,6 @@ estimateEffectiveR <- function(epidemicCurve, generationTime) {
   
   meanRange <- 1
   while(meanRange < 10) {
-    print(meanRange)
     meanEpidemicCurve <- rollmean(epidemicCurve, meanRange, fill=0)
     tryCatch({
       firstIndex <- which(meanEpidemicCurve > 0)[[1]]
@@ -56,9 +74,15 @@ plotEffectiveR <- function(r) {
   abline(h=1)
 }
 
-plotNewCases <- function(r) {
-  df <- as.data.frame(r$epid)
-  ggplot(df) + aes(x=t, y=incid) + geom_col() + xlab("Date") + ylab("New Cases")
+plotNewCases <- function(r, newDeaths) {
+  rDf <- as.data.frame(r$epid)
+  
+  ggplot() + geom_col(data=rDf, aes(x=t, y=incid, fill="cases")) +
+    geom_col(data=newDeaths, aes(x=date, y=deaths, fill="deaths")) +
+    xlab("Date") + ylab("New Cases/Deaths") +
+    scale_fill_manual(name = "", values = c("cases" = "grey", "deaths" = "red")) +
+    theme(legend.position = c(0.15, 0.85), legend.direction = "horizontal")
+    
 }
 
 # Define UI for application that draws a histogram
@@ -118,6 +142,10 @@ server <- function(input, output) {
       getEpidemicCurve(input$countries)
     })
     
+    reactiveNewDeaths <- reactive({
+      getNewDeaths(input$countries)
+    })
+    
     reactiveEstimateEffectiveR <- reactive({
       estimateEffectiveR(reactiveEpidemicCurve(), reactiveGenerationTime())
     })
@@ -135,7 +163,7 @@ server <- function(input, output) {
     output$newCases <- renderPlot({
       
       tryCatch({
-        plotNewCases(reactiveEstimateEffectiveR())
+        plotNewCases(reactiveEstimateEffectiveR(), reactiveNewDeaths())
       }, error=function(e) {
         print(e)
       })
