@@ -58,7 +58,7 @@ estimateEffectiveR <- function(epidemicCurve, generationTime) {
     tryCatch({
       firstIndex <- which(meanEpidemicCurve > 0)[[1]]
       print(firstIndex)
-      r <- estimate.R(meanEpidemicCurve[firstIndex:length(meanEpidemicCurve)], methods=c("TD"), GT=generationTime, nsim=100)$estimates$TD
+      r <- estimate.R(meanEpidemicCurve[firstIndex:length(meanEpidemicCurve)], methods=c("TD"), GT=generationTime, nsim=10)$estimates$TD
       return(r)
     }, error=function(e) {
       print(e)
